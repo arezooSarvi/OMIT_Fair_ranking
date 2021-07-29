@@ -249,7 +249,7 @@ def evaluateLearning(algoName, ranking, dataSetName, queryNumbers, listNet=False
             evalResults += allResults[0]
             outlierResults += allResults[1]
         try:
-            with open("/Users/fsarvi/PycharmProjects/Fair_ranking/results/" + algoName + finalName + 'ranking.csv', 'w',
+            with open(result_path + algoName + finalName + 'ranking.csv', 'w',
                       newline='') as mf:
                 writer = csv.writer(mf)
                 writer.writerows(finalPrinting)
