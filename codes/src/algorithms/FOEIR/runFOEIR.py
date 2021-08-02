@@ -494,13 +494,7 @@ def solveLPWithDTC(ranking, k, dataSetName, algoName, outlier_window_size, m=10,
     for i in range(k):
         for j in range(m):
             J2.append(j*k+i)
-
-    for i in range(k):
-        for j in range(m):
             I.append(i)
-
-    for i in range(k):
-        for j in range(m):
             I2.append(j)
 
     for i in range(k):
@@ -576,6 +570,11 @@ def solveLPWithDTC(ranking, k, dataSetName, algoName, outlier_window_size, m=10,
     # set up constraints sum(columns)=1
     M1 = spmatrix(1.0, I2, J)
 
+    # set up constraints sum(rows)>alpha
+    M3 = spmatrix(-1.0, I, J)
+    # set up constraints sum(columns)>alpha
+    M4 = spmatrix(-1.0, I2, J)
+
 
     # set up constraints outlierness of list
     # M2 = spmatrix(item_outlierness*k, I, J2)
@@ -584,6 +583,13 @@ def solveLPWithDTC(ranking, k, dataSetName, algoName, outlier_window_size, m=10,
     h1 = matrix(1.0, (k, 1))
     # values for sums rows == 1
     h2 = matrix(1.0, (m, 1))
+
+    # values for sums columns > alpha
+    alpha = 0.9999
+    h3 = matrix(-alpha, (k, 1))
+    # values for sums rows > alpha
+    h4 = matrix(-alpha, (m, 1))
+
     # values for x<=1
     # originally was range(k**2)
     b = matrix(1.0, (k * m, 1))
@@ -603,17 +609,30 @@ def solveLPWithDTC(ranking, k, dataSetName, algoName, outlier_window_size, m=10,
     # c = matrix(uv)
     c = matrix(ohuv)
 
+    # # This is the method with hard constraints
+    # # assemble constraint matrix as sparse matrix
+    # G = sparse([A, A1, f])
+    # # assemble constraint values
+
+    # h = matrix([b, d, 0.0])
+    #
+    # hc = sparse([M, M1])
+    # hv = matrix([h2, h1])
+
+    # Method with soft constraints but a lower bound on the sum of rows and columns
+
     # assemble constraint matrix as sparse matrix
-    G = sparse([A, A1, f])
+    G = sparse([M,M1,M3,M4,A,A1,f])
     # assemble constraint values
+    h = matrix([h2,h1,h3,h4,b,d,0.0])
 
-    h = matrix([b, d, 0.0])
-
-    hc = sparse([ M, M1])
-    hv = matrix([ h2, h1])
     print('Start solving LP with DTC.')
+    # # This is the setup for hard constraints:
+    # try:
+    #     sol = solvers.lp(c, G, h, A=hc, b=hv)
+    # Soft constraints but with lower bound (alpha) on sum
     try:
-        sol = solvers.lp(c, G, h, A=hc, b=hv)
+        sol = solvers.lp(c, G, h)
     except Exception:
         print('Cannot create a P for ' + algoName + ' on data set ' + dataSetName + '.')
         return 0, False
