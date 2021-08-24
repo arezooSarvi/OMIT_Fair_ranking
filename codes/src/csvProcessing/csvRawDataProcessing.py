@@ -165,10 +165,11 @@ def createQueriesCSV(rawFilepath, outPath, queryColumn, judgeColumn, sensiColumn
             f5_va.append(value)
             
     #print data to csv
-    data.loc[data['session'].isin(f1_tr)].to_csv(outPath+'fold1/train.csv', index=False)
-    data.loc[data['session'].isin(f1_va)].to_csv(outPath+'fold1/validation.csv', index=False)
-    data.loc[data['session'].isin(f1_te)].to_csv(outPath+'fold1/test.csv', index=False)
-    
+    data.loc[data['session'].isin(f1_tr)].to_csv(outPath+'fold/train.csv', index=False)
+    data.loc[data['session'].isin(f1_va)].to_csv(outPath+'fold/validation.csv', index=False)
+    data.loc[data['session'].isin(f1_te)].to_csv(outPath+'fold/test.csv', index=False)
+
+    exit()
     data.loc[data['session'].isin(f2_tr)].to_csv(outPath+'fold2/train.csv', index=False)
     data.loc[data['session'].isin(f2_va)].to_csv(outPath+'fold2/validation.csv', index=False)
     data.loc[data['session'].isin(f2_te)].to_csv(outPath+'fold2/test.csv', index=False)
@@ -187,6 +188,6 @@ def createQueriesCSV(rawFilepath, outPath, queryColumn, judgeColumn, sensiColumn
 
     
     
-createQueriesCSV("/Users/fsarvi/PycharmProjects/Fair_ranking/data/TREC2019/features/fold/train.csv",
+createQueriesCSV("/Users/fsarvi/PycharmProjects/Fair_ranking/data/TREC2019/features/train.csv",
                  "/Users/fsarvi/PycharmProjects/Fair_ranking/data/TREC2019/features/",
                  0, 26, 27, 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25)

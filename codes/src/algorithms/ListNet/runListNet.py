@@ -36,6 +36,12 @@ def runListNet(ranking, train, validate, test, k = 100, verb = 50, maxIter = 100
 
     agent = ListNet(verbose = verbose, max_iter = max_iter, val_ratio = val_ratio, n_thres_cand = rank)
     agent.fit(train_val_filename = train_val_filename)
+    print("epochs = "+str(max_iter))
+    print("1. train 2. test")
+    agent.test(ranking, filename=train_val_filename, noscore=False)
+    agent.test(ranking, filename=test_noscore_filename, noscore=False)
+
+
     if test_score_filename:
         agent.test(ranking, filename = test_score_filename, noscore = False)
     if test_noscore_filename:

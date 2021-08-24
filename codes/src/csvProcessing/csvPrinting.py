@@ -6,7 +6,7 @@ Created on Thu May 17 17:26:29 2018
 """
 import csv
 
-results_path = "../results/"
+results_path = "./results/"
 def createRankingCSV(rankedCandidates, rankingResultsPath, k):
     
     """
@@ -39,7 +39,7 @@ def createRankingCSV(rankedCandidates, rankingResultsPath, k):
             
             
 def createPCSV(x, dataSetName, algoName, k = 40):
-    
+
     """
     Prints the values for the doubly stochastic matrix to a csv file 
     rows denote the probability for a document to be ranked at a position from 1 to k
@@ -49,7 +49,7 @@ def createPCSV(x, dataSetName, algoName, k = 40):
     @param k: length of the ranking
     @param dataSetName: Name of the data set used for the evaluation
     @param algoName: Name of the algorithm that generated the underlying ranking
-    
+
     no return
     """
     

@@ -32,13 +32,13 @@ def calculatedTRandDIR(ranking, algoName, dataSetName, k = 40):
     if k > len(ranking):
        k = len(ranking)
 
-    x = solveLPWithoutFairness(ranking, algoName, k)
+    # x = solveLPWithoutFairness(ranking, algoName, k)
+    #
+    # x = np.reshape(x,(k,k))
+    #
+    # x = np.asarray(x, dtype='float64')
     
-    x = np.reshape(x,(k,k))
-    
-    x = np.asarray(x, dtype='float64')
-    
-    eval_DTR, eval_DTR_origin, eval_DTR_pos_neg = dTR(ranking, k, x)
+    eval_DTR, eval_DTR_origin, eval_DTR_pos_neg = dTR(ranking, k)
 #    eval_DIR = dIR(ranking, k, x)
     
     results.append([dataSetName, algoName, 'DTR', eval_DTR])
@@ -46,11 +46,11 @@ def calculatedTRandDIR(ranking, algoName, dataSetName, k = 40):
     results.append([dataSetName, algoName, 'DTR_pos_neg', eval_DTR_pos_neg])
     
     #print the doubly stochastic matrix to ensure varifiability
-    createPCSV(x, dataSetName, algoName, k)
+    createPCSV(np.array([]), dataSetName, algoName, k)
     
     return results
 
-def dTR(ranking, k, x):
+def dTR(ranking, k):
     
     """
     Calculate Disparate Treatment Ratio (DTR)
@@ -74,8 +74,8 @@ def dTR(ranking, k, x):
     #calculate utility and click through rate (CTR) for protected and unprotected groups
     for i in range(k):
         #get relevances from ranking
-        utility.append(ranking[i].originalQualification)       
-    
+        utility.append(ranking[i].originalQualification)
+
     u = np.asarray(utility)
     #normalize input
     u = (u - np.min(u))/(np.max(u)-np.min(u) + 0.001)
@@ -99,8 +99,12 @@ def dTR(ranking, k, x):
     v = 1/np.log2(1 + v + 1)
     v = np.reshape(v, (1,k))
     
-    proExposure = np.sum((np.sum((x[proListX]*v),axis=1)),axis=0)
-    unproExposure = np.sum((np.sum((x[unproListX]*v),axis=1)),axis=0)
+    # proExposure = np.sum((np.sum((x[proListX]*v),axis=1)),axis=0)
+    # unproExposure = np.sum((np.sum((x[unproListX]*v),axis=1)),axis=0)
+
+    v = np.transpose(v)
+    proExposure = np.sum(v[proListX])
+    unproExposure = np.sum(v[unproListX])
 
     #initialize penalties if one of the counters is zero
     top = 0
@@ -124,19 +128,19 @@ def dTR(ranking, k, x):
 
     #calculate DTR
     dTR_origin = top / bottom
-    if proU <= unproU:
+    if top <= bottom:
         dTR_pos_neg = -(top / bottom)
     else:
         dTR_pos_neg = bottom / top
-    if proU <= unproU:
-        dTR = top / bottom
-    else:
-        dTR = bottom / top
+    # if proU <= unproU:
+    #     dTR = top / bottom
+    # else:
+    #     dTR = bottom / top
     # if proU <= unproU:
     #     dTR = max(0, top - bottom)
     # else:
     #     dTR = max(0, bottom - top)
-
+    dTR = top - bottom
     return dTR, dTR_origin, dTR_pos_neg
 
     

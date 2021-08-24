@@ -5,10 +5,8 @@ Created on Fri May 18 15:34:40 2018
 @author: Laura
 """
 
-import codes.src.measures.calculaterKL as rKL
 import codes.src.measures.relevance as rel
-import codes.src.measures.calculateDTRandDIR as d
-#import codes.src.measures.calculateFairnessTestAtK as ftak
+import codes.src.measures.calculateOutlierness as otlr
 import copy
 
 """
@@ -16,7 +14,7 @@ This method runs the evaluation process.
 Except for the three NDCG values all values are evaluated for k = 40. 
 """
 
-def runMetrics(k, protected, unprotected, ranking, originalRanking, dataSetName, algoName):
+def runMetrics(k, protected, unprotected, ranking, originalRanking, dataSetName, algoName, od_method):
     
     """
     Starts the evaluation process for on measures for the inputed data
@@ -91,24 +89,29 @@ def runMetrics(k, protected, unprotected, ranking, originalRanking, dataSetName,
     #append results
     results.append([dataSetName, algoName, 'NDCG@10', eval_NDCG])
 
+    #calculate NDCG@20
+    eval_NDCG = rel.nDCG(20, ranking, oR)
+    #append results
+    results.append([dataSetName, algoName, 'NDCG@20', eval_NDCG])
 
-    # #calculate rKL
-    # #get the maximal rKL value
-    # max_rKL=rKL.getNormalizer(user_N,pro_N,dataSetName)
-    # #get evaluation results for rKL with steps of size 10
-    # eval_rKL=rKL.calculateNDFairness(indexRanking, proIndex, 10, max_rKL)
-    # #append results
-    # results.append([dataSetName, algoName, 'rKL', eval_rKL])
-    #
-    #calculate DTR and DIR and return their results
-    results += d.calculatedTRandDIR(ranking, algoName, dataSetName, k = k)
+    # calculate outlierness/#outliers@1
+    outliers_count, outlierness = otlr.calculateOutlierMetrics(1, ranking, k, od_method)
+    #append results
+    results.append([dataSetName, algoName, '#outlier@1', outliers_count])
+    results.append([dataSetName, algoName, 'outlierness@1', outlierness])
 
+    # calculate outlierness/#outliers@1
+    outliers_count, outlierness = otlr.calculateOutlierMetrics(5, ranking, k, od_method)
+    #append results
+    results.append([dataSetName, algoName, '#outlier@5', outliers_count])
+    results.append([dataSetName, algoName, 'outlierness@5', outlierness])
 
-    #calculate Fairnes@k
-#    eval_FairnessAtK = ftak.fairnessTestAtK(dataSetName, ranking, protected, unprotected, k)
+    # calculate outlierness/#outliers@1
+    outliers_count, outlierness = otlr.calculateOutlierMetrics(10, ranking, k, od_method)
+    #append results
+    results.append([dataSetName, algoName, '#outlier@10', outliers_count])
+    results.append([dataSetName, algoName, 'outlierness@10', outlierness])
 
-    #results.append([dataSetName, algoName, 'FairnessAtK', eval_FairnessAtK])
-    
     return results
 
 

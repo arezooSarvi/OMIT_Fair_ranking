@@ -1,27 +1,21 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Thu May 17 14:43:30 2018
 
-@author: Laura
-"""
 
 from codes.src.candidateCreator.createCandidate import createCandidate as cC
 from codes.src.csvProcessing.csvPrinting import createRankingCSV
 from codes.src.algorithms.FOEIR.runFOEIR import runFOEIR
 from codes.src.algorithms.ListNet.runListNet import runListNet
 from codes.src.measures.runMetrics import runMetrics
+from codes.src.measures.finalEval import calculateFinalResults
+from codes.utils import clear_results_folder as cl
 import os
 import pandas as pd
 import csv
 import datetime
-import multiprocessing
-from joblib import Parallel, delayed
-import numpy as np
 
-from codes.utils.utils import Utils
-
-data_path = "../data/TREC2020/features/fold"
-result_path = "../results"
+data_date = "2020"
+data_path = "../data/TREC" + data_date + "/features/fold"
+result_path = "./results"
 
 """
 
@@ -41,78 +35,35 @@ the file will be treated and evaluated as if it belonged to one data set
 """
 
 
-def print_final_results(results, outlier_results, decp_algo=''):
-    final_results_outliers = []
-    for row in outlier_results:
-        temp = {}
-        temp['algoName'] = row[1]
-        temp['metric'] = row[2]
-        temp['value'] = row[3]
-        final_results_outliers.append(temp.copy())
-    final_results = pd.DataFrame(final_results_outliers, columns=final_results_outliers[0].keys())
-    foeir = final_results.loc[final_results['algoName'] == 'FOEIR-DTC']
-    foeir_outlierness = foeir.groupby('metric').mean()
-    foeir_outlierness = foeir_outlierness.to_dict()['value']
-    desired_order_list = ['#outliers@1', '#outliers@3', '#outliers@5', '#outliers@10', 'outlierness@1', 'outlierness@3',
-                          'outlierness@5', 'outlierness@10', '#outliers@1_origin', '#outliers@3_origin',
-                          '#outliers@5_origin', '#outliers@10_origin', 'outlierness@1_origin', 'outlierness@3_origin',
-                          'outlierness@5_origin', 'outlierness@10_origin', 'estimated_swap_movements']
-    foeir_outlierness = {k: foeir_outlierness[k] for k in desired_order_list}
-
-    final_results = []
-    for row in results:
-        temp = {}
-        temp['algoName'] = row[1]
-        temp['metric'] = row[2]
-        temp['value'] = row[3]
-        final_results.append(temp.copy())
-    final_results = pd.DataFrame(final_results)
-    listnet = final_results.loc[final_results['algoName'] == 'ListNet']
-    foeir = final_results.loc[final_results['algoName'] == 'FOEIR-DTC']
-    listnet = listnet.groupby('metric').mean()
-    foeir = foeir.groupby('metric').mean()
-    print(" **** ListNet ****")
-    print(listnet)
-    print("**** FOEIR_" + decp_algo + " ****")
-    print(foeir)
-    print("**** FOEIR Outlierness_" + decp_algo + " ****")
-    print(foeir_outlierness)
-    output_name = "evaluationResults_ListNet_" + decp_algo + ".csv"
-    listnet.to_csv(os.path.join(result_path, output_name), index=(False))
-    output_name = "evaluationResultts_FOEIR_" + decp_algo + ".csv"
-    foeir.to_csv(os.path.join(result_path, output_name), index=(False))
-    output_name = "evaluationResultts_FOEIR_outlierness" + decp_algo + ".csv"
-    # foeir_outlierness.to_csv(os.path.join(result_path, output_name), index=(False))
-    Utils().write_dict_to_csv_with_a_row_for_each_key(foeir_outlierness, os.path.join(result_path, output_name))
-
-
-def main_1(dataSetName, fileNames, listNetRanking, outliers_results, queryNumbers, query_seq_file, results, wind):
-    listResults, outlierResults, listFileNames = evaluateLearning('ListNet', listNetRanking, dataSetName,
-                                                                  queryNumbers, True,
-                                                                  query_seq=query_seq_file,
-                                                                  od_method='copod',
-                                                                  outlier_window_size=wind)
+def main_1(dataSetName, fileNames, listNetRanking, queryNumbers, query_seq_file, od_method='copod'):
+    results = []
+    listResults, listFileNames = evaluateLearning('ListNet', listNetRanking, dataSetName,
+                                                  queryNumbers, True,
+                                                  query_seq=query_seq_file,
+                                                  od_method=od_method)
     results += listResults
-    outliers_results += outlierResults
     fileNames += listFileNames
-    print_final_results(results, outlierResults, '_outlierness_COPOD')
+    listNet_results, fair_results = calculateFinalResults(results)
+    listNet_results.to_csv(os.path.join(result_path, 'ListNet_' + od_method + '.csv'))
+    fair_results.to_csv(os.path.join(result_path, 'Fair_' + od_method + '.csv'))
 
 
 def main():
     """
-    This method starts the whole benchmkaring process. It first reads all 
+    This method starts the whole benchmkaring process. It first reads all
     raw data sets and creates CSV files from those.
     Then it calls the method benchmarkingProcess to run the benchmarks on
     the implemented algorithms and evalute those with provided measures.
     The method then
-    
+
     """
     # initialize list for evaluation results
-    results = []
+
     outliers_results = []
     finalResults = []
     fileNames = []
 
+    cl.clear_results_folder()
     startTime = datetime.datetime.now()
 
     # read all data sets in TREC including all folds
@@ -129,15 +80,8 @@ def main():
             ranking, queryNumbers = cC.createLearningCandidate(getTest)
 
             # run ListNet learning process
-            listNetRanking, dataSetName = runListNet(ranking, getTrain, [], getTest, maxIter=1, val=0.3)
-            # evaluate listNet learning process, print ranked queries and start scoreBasedEval
-            #Parallel(n_jobs=1)(delayed(main_1)(dataSetName, fileNames, listNetRanking, outliers_results,
-             #                                  queryNumbers, query_seq_file, results, wind) for wind in
-              #                 range(10, 41, 5))
-            main_1(dataSetName, fileNames, listNetRanking, outliers_results, queryNumbers, query_seq_file, results, None)
-
-    # ### average results on all queries
-    # print_final_results(results)
+            listNetRanking, dataSetName = runListNet(ranking, getTrain, [], getTest, maxIter=70, val=0.3)
+            main_1(dataSetName, fileNames, listNetRanking, queryNumbers, query_seq_file, od_method='copod')
 
     endTime = datetime.datetime.now()
 
@@ -147,24 +91,23 @@ def main():
 
 
 def evaluateLearning(algoName, ranking, dataSetName, queryNumbers, listNet=False, k=40, query_seq=None,
-                     od_method='copod', decomposition=None, m=None, outlier_window_size=None):
+                     od_method='copod'):
     """
     Evaluates the learning algorithms per query, creates an output file for each ranked query,
     and start the scoreBasedEval method for each query
-    
+
     @param algoName: Name of the algorithm which created the query rankings
     @param ranking: A list of candidates from different queries with new calculated scores for them
     @param dataSetName: Name of the data set without query numbers
     @param queryNumbers: List of query identifiers
     @param k: turncation point of the ranking
-    
+
     return evalResults list with the evaluation results for the algorithms
            evalResults looks like this: [dataSetName, Optimization Algorithm, Measure, Value of Measure]
            fileNames list with file names for each query.
     """
     # initialize list for evaluation results
     evalResults = []
-    outlierResults = []
     fileNames = []
 
     # initialize k for evaluation purposes. This k is also used for calculation of FOIER algorithms
@@ -181,10 +124,7 @@ def evaluateLearning(algoName, ranking, dataSetName, queryNumbers, listNet=False
     # loop for each query
     progress_monitor = 0
     for query in queryNumbers:
-        # if query != 63397:
-        #     continue
         progress_monitor += 1
-        # if progress_monitor < 150: continue
         print('************ ', progress_monitor, ' / ', len(queryNumbers), " ************")
         queryRanking = []
         queryProtected = []
@@ -192,7 +132,8 @@ def evaluateLearning(algoName, ranking, dataSetName, queryNumbers, listNet=False
         output = []
         if query_seq is not None:
             query_repetition_count = query_seq[query_seq[1] == query].shape[0]
-        else: query_repetition_count = 1
+        else:
+            query_repetition_count = 1
         if query_repetition_count == 0: continue
         finalPrinting = [
             ['Original_Score', 'learned_Scores', 'Ranking_Score_from_Postprocessing', 'Sensitive_Attribute']]
@@ -234,7 +175,8 @@ def evaluateLearning(algoName, ranking, dataSetName, queryNumbers, listNet=False
         # evaluate listNet
         # evalK instead of m
         evalResults += (
-            runMetrics(evalK, queryProtected, queryNonprotected, queryRanking[0:m], queryRanking, finalName, 'ListNet'))
+            runMetrics(evalK, queryProtected, queryNonprotected, queryRanking[0:k], queryRanking, finalName, 'ListNet',
+                       od_method))
 
         output.sort(key=lambda x: x[2], reverse=True)
 
@@ -243,13 +185,12 @@ def evaluateLearning(algoName, ranking, dataSetName, queryNumbers, listNet=False
         # only start scoreBasedEval if the algorithm is listNet (baseline)
         if listNet == True:
             # run the score based evaluation on the ranked candidate list
-            allResults = scoreBasedEval(finalName, "", k, True, queryProtected, queryNonprotected, queryRanking,
-                                        listNet, query_rep=query_repetition_count, decomposition=decomposition, m=m,
-                                        od_method=od_method, outlier_window_size=outlier_window_size)
+            allResults = scoreBasedEval(finalName, "", k, queryProtected, queryNonprotected, queryRanking,
+                                        listNet, query_rep=query_repetition_count,
+                                        od_method=od_method)
             evalResults += allResults[0]
-            outlierResults += allResults[1]
         try:
-            with open(result_path + algoName + finalName + 'ranking.csv', 'w',
+            with open(result_path + "/" + algoName + finalName + 'ranking.csv', 'w',
                       newline='') as mf:
                 writer = csv.writer(mf)
                 writer.writerows(finalPrinting)
@@ -257,29 +198,29 @@ def evaluateLearning(algoName, ranking, dataSetName, queryNumbers, listNet=False
             raise Exception("Some error occured during file creation. Double check specifics.")
             pass
 
-    return evalResults, outlierResults, fileNames
+    return evalResults, fileNames
 
 
-def scoreBasedEval(dataSetName, dataSetPath, k=40, features=True, protected=[], nonProtected=[], originalRanking=[],
-                   listNet=False, query_rep=1, od_method='copod', decomposition=None, m=None, outlier_window_size=None):
+def scoreBasedEval(dataSetName, dataSetPath, k=40, protected=[], nonProtected=[], originalRanking=[],
+                   listNet=False, query_rep=1, od_method='copod'):
     """
-    Evaluates the learning to rank algorithms and runs 
+    Evaluates the learning to rank algorithms and runs
     the optimization and evaluation of the post-processing methods
-    
+
     @param dataSetName: Name of the data set
-    @param dataSetPath: Path of the data sets for score based evaluation. 
+    @param dataSetPath: Path of the data sets for score based evaluation.
     @param k: Provides the length of the ranking
     @param features: True if the provided data set has features for LFRanking, otherwise
     false
-    @param protected: If data comes from a learning to rank algorithm this param holds a 
+    @param protected: If data comes from a learning to rank algorithm this param holds a
     list of candidates with protected group membership
-    @param protected: If data comes from a learning to rank algorithm this param holds a 
+    @param protected: If data comes from a learning to rank algorithm this param holds a
     list of candidates with non-protected group membership
-    @param protected: If data comes from a learning to rank algorithm this param holds a 
+    @param protected: If data comes from a learning to rank algorithm this param holds a
     list of candidates from the new ranking
-    @param scoreData: Is set false if the data does not come from an already scored data 
+    @param scoreData: Is set false if the data does not come from an already scored data
     set but from a learning to rank algorithm
-    
+
     returns a list of evaluation results of the form:
         [dataSetName, Optimization Algorithm, Measure, Value of Measure]
     """
@@ -302,37 +243,28 @@ def scoreBasedEval(dataSetName, dataSetPath, k=40, features=True, protected=[], 
         # creates Candidates from the preprocessed CSV files in folder preprocessedDataSets
         protected, nonProtected, originalRanking = cC.createScoreBased(dataSetPath)
 
-    # #creates a csv with candidates ranked with color-blind ranking
-    # createRankingCSV(originalRanking, 'Color-Blind/' + dataSetName + 'ranking.csv',k )
-    # #run the metrics ones for the color-blind ranking
-    # evalResults += (runMetrics(evalK, protected, nonProtected, originalRanking, originalRanking, dataSetName, 'Color-Blind'))
-
-    # run for FOEIR-DPC
-    # dpcRanking, dpcPath, isDPC = runFOEIR(originalRanking, dataSetName, 'FOEIR-DPC', evalK)
-    # if isDPC == True:
-    #     dpcRanking = updateCurrentIndex(dpcRanking)
-    #     createRankingCSV(dpcRanking, dpcPath,evalK)
-    #     evalResults += (runMetrics(evalK, protected, nonProtected, dpcRanking, originalRanking, dataSetName, 'FOEIR-DPC'))
-
-    dtcRankings, dtcPath, isDTC, analytics = runFOEIR(originalRanking, dataSetName, 'FOEIR-DTC', evalK,
-                                                      query_rep=query_rep, od_method=od_method, m=m,
-                                                      decomposition=decomposition,
-                                                      outlier_window_size=outlier_window_size)
+    dtcRankings, dtcPath, isDTC = runFOEIR(originalRanking, dataSetName, 'FOEIR-DTC', evalK,
+                                           query_rep=query_rep, od_method=od_method)
     if isDTC == True:
+        ranking_counter = 0
+        temp_results = []
         for dtcRanking in dtcRankings:
             dtcRanking = updateCurrentIndex(dtcRanking)
-            createRankingCSV(dtcRanking, dtcPath, len(dtcRanking))
-            # evalK instead of m
-            evalResults += (
-                runMetrics(evalK, protected, nonProtected, dtcRanking, originalRanking, dataSetName, 'FOEIR-DTC'))
-        for key in analytics:
-            outliersResults.append([dataSetName, 'FOEIR-DTC', key, analytics.get(key, -1)])
-    # [, , 'FairnessAtK', eval_FairnessAtK]
-    # dicRanking, dicPath, isDIC = runFOEIR(originalRanking, dataSetName, 'FOEIR-DIC', evalK)
-    # if isDIC == True:
-    #     dicRanking = updateCurrentIndex(dicRanking)
-    #     createRankingCSV(dicRanking, dicPath,evalK)
-    #     evalResults += (runMetrics(evalK, protected, nonProtected, dicRanking, originalRanking, dataSetName, 'FOEIR-DIC'))
+            ranking_counter += 1
+            dtcPath_counter = dtcPath.split('.')[0] + '_' + str(ranking_counter) + '.' + dtcPath.split('.')[1]
+            createRankingCSV(dtcRanking, dtcPath_counter, len(dtcRanking))
+            # evalResults += (
+            #     runMetrics(evalK, protected, nonProtected, dtcRanking, originalRanking, dataSetName, 'FOEIR-DTC'))
+            temp_results += (
+                runMetrics(evalK, protected, nonProtected, dtcRanking, originalRanking, dataSetName, 'FOEIR-DTC',
+                           od_method))
+
+        _, temp_results = calculateFinalResults(temp_results)
+        result = runMetrics(evalK, protected, nonProtected, dtcRanking, originalRanking, dataSetName, 'FOEIR-DTC',
+                            od_method)
+        for row in result:
+            row[3] = temp_results.loc[temp_results.index == row[2]]['value'].to_list()[0]
+        evalResults += (result)
 
     return evalResults, outliersResults
 
@@ -342,10 +274,10 @@ def updateCurrentIndex(ranking):
     Updates the currentIndex of a ranking according to the current order in the
     list
     @param ranking: list with candidates of a ranking
-    
-    return list of candidates with updated currentIndex according to their 
+
+    return list of candidates with updated currentIndex according to their
     position in the current ranking
-    
+
     """
 
     index = 0
@@ -363,10 +295,10 @@ def updateLearnedIndex(ranking):
     Updates the learnedIndex of a ranking according to the current order in the
     list
     @param ranking: list with candidates of a ranking
-    
-    return list of candidates with updated learnedIndex according to their 
+
+    return list of candidates with updated learnedIndex according to their
     position in the current ranking
-    
+
     """
 
     index = 0
@@ -382,9 +314,9 @@ def updateLearnedIndex(ranking):
 def getDataSetName(fileName):
     """
     Extracts name of file for score based eval
-    
+
     @param fileName: Name of the file with .csv ending
-    
+
     return fileName without .csv
     """
 
@@ -394,3 +326,4 @@ def getDataSetName(fileName):
 
 
 main()
+

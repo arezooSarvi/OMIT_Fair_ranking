@@ -208,7 +208,7 @@ class ListNet(object):
                 y_j = F.normalize(y_j)
                 pred_j = self.predict(x_j)
                 pred_j = F.reshape(pred_j,(pred_j.data.shape[0],))
-                testres += ndcg(y_j.data,pred_j.data,self.n_thres_cand)
+                testres += ndcg(y_j.data,pred_j.data, k=10) #self.n_thres_cand,
             print("test_ndcg:{}".format(testres / self.test_T))
             return []
 
