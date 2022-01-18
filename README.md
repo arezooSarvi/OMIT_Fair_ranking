@@ -1,4 +1,4 @@
-# Outlier MITigation (OMIT
+# Outlier MITigation (OMIT)
 
 This repository contains the code and data used for the following paper accepted at WSDM'22:
 
