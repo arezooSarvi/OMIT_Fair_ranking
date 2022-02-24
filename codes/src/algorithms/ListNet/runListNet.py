@@ -7,8 +7,8 @@ Created on Sun May 27 19:36:19 2018
 
 from codes.src.algorithms.ListNet.listnet import ListNet
 
-def runListNet(ranking, train, validate, test, k = 100, verb = 50, maxIter = 1000, val = 0.5):
-    
+
+def runListNet(ranking, train, validate, test, k=100, verb=50, maxIter=1000, val=0.5):
     """
     runs ListNet
     
@@ -25,7 +25,6 @@ def runListNet(ranking, train, validate, test, k = 100, verb = 50, maxIter = 100
     
     """
 
-
     train_val_filename = train
     test_score_filename = validate
     test_noscore_filename = test
@@ -34,30 +33,14 @@ def runListNet(ranking, train, validate, test, k = 100, verb = 50, maxIter = 100
     val_ratio = val
     rank = k
 
-    agent = ListNet(verbose = verbose, max_iter = max_iter, val_ratio = val_ratio, n_thres_cand = rank)
-    agent.fit(train_val_filename = train_val_filename)
-    print("epochs = "+str(max_iter))
-    print("1. train 2. test")
-    agent.test(ranking, filename=train_val_filename, noscore=False)
-    agent.test(ranking, filename=test_noscore_filename, noscore=False)
-
+    agent = ListNet(verbose=verbose, max_iter=max_iter, val_ratio=val_ratio, n_thres_cand=rank)
+    agent.fit(train_val_filename=train_val_filename)
 
     if test_score_filename:
-        agent.test(ranking, filename = test_score_filename, noscore = False)
+        agent.test(ranking, filename=test_score_filename, noscore=False)
     if test_noscore_filename:
-        ranking = agent.test(ranking, filename = test_noscore_filename, noscore = True)
-        
+        ranking = agent.test(ranking, filename=test_noscore_filename, noscore=True)
+
     dataSetName = test.split('/')[-3]
-    
+
     return ranking, dataSetName
-   
-        
-        
-        
-        
-                
-     
-
-
-
-            

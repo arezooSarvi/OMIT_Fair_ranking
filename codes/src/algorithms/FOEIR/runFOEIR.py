@@ -14,7 +14,7 @@ from codes.src.algorithms.FOEIR import Birkhoff
 solvers.options['show_progress'] = False
 
 
-def runFOEIR(ranking, dataSetName, algoName, k=40, query_rep=1, od_method='copod'):
+def runFOEIR(ranking, dataSetName, algoName, k=40, query_rep=1, od_method='copod', baseline=False):
     """
     Start the calculation of the ranking for FOEIR under a given fairness constraint
     either Disparate Impact (DI), Disparate Treatment (DT), or Demographic Parity (DP)
@@ -32,18 +32,22 @@ def runFOEIR(ranking, dataSetName, algoName, k=40, query_rep=1, od_method='copod
     ranking_backup = ranking.copy()
     # initialize as empty string
     rankingResultsPath = ''
-    # initialize rankings as repetitions of the original ranking
-    # in case LP cannot find any solutions, the original ranking will be outputted as the solution
-    rankings = query_rep * [ranking]
-
     ranking_backup.sort(key=lambda candidate: candidate.learnedScores, reverse=True)
 
     # set k to maximum default value
     if k > len(ranking_backup):
         k = len(ranking_backup)
 
+    # initialize rankings as repetitions of the original ranking
+    # in case LP cannot find any solutions, the original ranking will be outputted as the solution
+    rankings = query_rep * [ranking[0:k]]
+
     outlier_index_original_ranking, _, scores = detectOutliers(ranking_backup, k, od_method)
-    outiers_in_ranking = []
+    if baseline:
+        outiers_in_ranking = [ranking_backup[id] for id, i in enumerate(outlier_index_original_ranking) if i == 1]
+        for i in outiers_in_ranking:
+            ranking_backup.remove(i)
+        k -= len(outiers_in_ranking)
 
     # check for which constraint to comput the ranking
     if algoName == 'FOEIR-DIC':
@@ -70,8 +74,7 @@ def runFOEIR(ranking, dataSetName, algoName, k=40, query_rep=1, od_method='copod
 
         # creat the new ranking, if not possible, isRanked will be false and newRanking
         # will be equal to ranking
-        rankings, isRanked = createRanking(x, ranking_backup, k, scores=scores, query_rep=query_rep,
-                                           outiers_list=outiers_in_ranking)
+        rankings, isRanked = createRanking(x, ranking_backup, k, scores=scores, query_rep=query_rep)
     else:
         createPCSV(np.array([]), algoName, 'NO_SOL_FOUND', ranking[0].query)
     rankingResultsPath = algoName + '/' + dataSetName + "ranking.csv"
@@ -79,7 +82,7 @@ def runFOEIR(ranking, dataSetName, algoName, k=40, query_rep=1, od_method='copod
     return rankings, rankingResultsPath, True  # True -> isRanked
 
 
-def createRanking(x, nRanking, k, scores=[], query_rep=1, outiers_list=[]):
+def createRanking(x, nRanking, k, scores=[], query_rep=1):
     """
     Calculates the birkhoff-von-Neumann decomopsition using package available at
     https://github.com/jfinkels/birkhoff
@@ -325,7 +328,7 @@ def solveLPWithDTC(ranking, k, dataSetName, algoName, od_method='copod'):
     I2 = []
     J2 = []
     # set up indices for column and row constraints
-    for j in range(k*k):
+    for j in range(k * k):
         J.append(j)
 
     for i in range(k):
@@ -353,7 +356,6 @@ def solveLPWithDTC(ranking, k, dataSetName, algoName, od_method='copod'):
             unproU += arrayU[i]
 
     arrayU = np.reshape(arrayU, (k, 1))
-
 
     if len(ranking) < 10:
         topk = len(ranking)
@@ -398,14 +400,14 @@ def solveLPWithDTC(ranking, k, dataSetName, algoName, od_method='copod'):
     f1 = initf.dot(v)
 
     f1 = f1.flatten()
-    f1 = np.reshape(f1, (1, k*k))
+    f1 = np.reshape(f1, (1, k * k))
 
     f = matrix(f1)
 
     # set up constraints x <= 1
-    A = spmatrix(1.0, range(k*k), range(k*k))
+    A = spmatrix(1.0, range(k * k), range(k * k))
     # set up constraints x >= 0
-    A1 = spmatrix(-1.0, range(k*k), range(k*k))
+    A1 = spmatrix(-1.0, range(k * k), range(k * k))
     # set up constraints that sum(rows)=1
     M = spmatrix(1.0, I, J)
     # set up constraints sum(columns)=1
@@ -415,21 +417,22 @@ def solveLPWithDTC(ranking, k, dataSetName, algoName, od_method='copod'):
     h1 = matrix(1.0, (k, 1))
     # values for sums rows == 1
     h2 = matrix(1.0, (k, 1))
-    b = matrix(1.0, (k*k, 1))
+    b = matrix(1.0, (k * k, 1))
     # values for x >= 0
-    d = matrix(0.0, (k*k, 1))
+    d = matrix(0.0, (k * k, 1))
 
     c = matrix(ohuv)
+    # c = matrix(uv)
     # assemble constraint matrix as sparse matrix
-    G = sparse([A, A1, M, M1, f])
+    G = sparse([A, A1,M, M1, f])
     # assemble constraint values
-    h = matrix([b, d, h2, h1, 0.0])
+    h = matrix([b, d,h2, h1, 0.0])
 
     # hc = sparse([ M, M1])
     # hv = matrix([ h2, h1])
     print('Start solving LP with DTC.')
     try:
-        sol = solvers.lp(c, G, h)  # , A=hc, b=hv)
+        sol = solvers.lp(c, G, h)#, A=hc, b=hv)
     except Exception:
         print('Cannot create a P for ' + algoName + ' on data set ' + dataSetName + '.')
         return 0, False

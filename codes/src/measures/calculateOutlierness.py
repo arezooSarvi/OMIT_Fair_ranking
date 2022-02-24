@@ -1,6 +1,6 @@
 
 
-from codes.src.algorithms.FOEIR.od_methods import COPOD_od, MAD_od, MedKnn_od
+from codes.src.algorithms.FOEIR.od_methods import COPOD_od, MAD_od, MedKnn_od, quartile_od
 
 
 def calculateOutlierMetrics(k, ranking, context_size, od_method):
@@ -34,6 +34,8 @@ def detectOutliers(ranking, context_size, od_method):
         outlier_index_original_ranking, outlierness_original_ranking, _ = MedKnn_od(scores, return_list=True)
     if od_method == 'mad':
         outlier_index_original_ranking, outlierness_original_ranking, _ = MAD_od(scores, return_list=True)
+    if od_method == 'quartile':
+        outlier_index_original_ranking, outlierness_original_ranking = quartile_od(scores)
     outlierness_original_ranking = [i if outlier_index_original_ranking[id] else 0 for id, i in
                                     enumerate(outlierness_original_ranking)]
     return outlier_index_original_ranking, outlierness_original_ranking, scores

@@ -7,7 +7,6 @@ from codes.src.algorithms.FOEIR.runFOEIR import runFOEIR
 from codes.src.algorithms.ListNet.runListNet import runListNet
 from codes.src.measures.runMetrics import runMetrics
 from codes.src.measures.finalEval import calculateFinalResults
-from codes.utils import clear_results_folder as cl
 import os
 import pandas as pd
 import csv
@@ -63,7 +62,6 @@ def main():
     finalResults = []
     fileNames = []
 
-    cl.clear_results_folder()
     startTime = datetime.datetime.now()
 
     # read all data sets in TREC including all folds
@@ -80,8 +78,8 @@ def main():
             ranking, queryNumbers = cC.createLearningCandidate(getTest)
 
             # run ListNet learning process
-            listNetRanking, dataSetName = runListNet(ranking, getTrain, [], getTest, maxIter=70, val=0.3)
-            main_1(dataSetName, fileNames, listNetRanking, queryNumbers, query_seq_file, od_method='copod')
+            listNetRanking, dataSetName = runListNet(ranking, getTrain, [], getTest, maxIter=30, val=0.3)
+            main_1(dataSetName, fileNames, listNetRanking, queryNumbers, query_seq_file, od_method='mad')
 
     endTime = datetime.datetime.now()
 
@@ -189,14 +187,6 @@ def evaluateLearning(algoName, ranking, dataSetName, queryNumbers, listNet=False
                                         listNet, query_rep=query_repetition_count,
                                         od_method=od_method)
             evalResults += allResults[0]
-        try:
-            with open(result_path + "/" + algoName + finalName + 'ranking.csv', 'w',
-                      newline='') as mf:
-                writer = csv.writer(mf)
-                writer.writerows(finalPrinting)
-        except Exception:
-            raise Exception("Some error occured during file creation. Double check specifics.")
-            pass
 
     return evalResults, fileNames
 
@@ -245,6 +235,7 @@ def scoreBasedEval(dataSetName, dataSetPath, k=40, protected=[], nonProtected=[]
 
     dtcRankings, dtcPath, isDTC = runFOEIR(originalRanking, dataSetName, 'FOEIR-DTC', evalK,
                                            query_rep=query_rep, od_method=od_method)
+    createRankingCSV(originalRanking, 'ListNet_' + dataSetName, len(dtcRankings[0]))
     if isDTC == True:
         ranking_counter = 0
         temp_results = []
@@ -253,8 +244,6 @@ def scoreBasedEval(dataSetName, dataSetPath, k=40, protected=[], nonProtected=[]
             ranking_counter += 1
             dtcPath_counter = dtcPath.split('.')[0] + '_' + str(ranking_counter) + '.' + dtcPath.split('.')[1]
             createRankingCSV(dtcRanking, dtcPath_counter, len(dtcRanking))
-            # evalResults += (
-            #     runMetrics(evalK, protected, nonProtected, dtcRanking, originalRanking, dataSetName, 'FOEIR-DTC'))
             temp_results += (
                 runMetrics(evalK, protected, nonProtected, dtcRanking, originalRanking, dataSetName, 'FOEIR-DTC',
                            od_method))
@@ -326,4 +315,3 @@ def getDataSetName(fileName):
 
 
 main()
-
